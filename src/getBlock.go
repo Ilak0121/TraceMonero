@@ -19,39 +19,8 @@ import (
 const (
     urlTx       = "http://127.0.0.1:18081/get_transactions"
     urlRPC      = "http://127.0.0.1:18081/json_rpc"
-    blockLimit  = 1000//2238270
+    blockLimit  = 2238270
 )
-
-/*
-    GetTx (txHash []byte)
-    txHash = list of transaction hashes. e.g. ['123124513412','1253523523']
-    return: body contents as byte string, i.e. []byte
-*/
-func GetTx(txHash []byte) []byte{
-
-    str := fmt.Sprintf(`decode_as_json:True, "tx_hashes":%s`, string(txHash))
-    jsonStr := []byte(str)
-
-    req, err := http.NewRequest("POST",urlTx,bytes.NewBuffer(jsonStr))
-    req.Header.Set("content-type","application/json")
-
-    client := &http.Client{}
-    client.Timeout = time.Second * 15
-
-    resp, err := client.Do(req)
-    if err != nil{
-        log.Fatal(err)
-    }
-    defer resp.Body.Close()
-
-    if resp.StatusCode!=200 {
-        log.Fatal("[ERROR] response not 200")
-    }
-
-    body,_ := ioutil.ReadAll(resp.Body)
-    
-    return body
-}
 
 /*
     GetBlock (block_height int32)
@@ -97,7 +66,6 @@ func main(){
     NCBTxNum := 0
 
     start := time.Now()
-    
     var percentIndex int32 = 0
     for i=0;i<blockLimit+1;i++{
         body = GetBlock(i)
@@ -119,14 +87,15 @@ func main(){
             //fmt.Println("[INFO]",i,"'th", "minerTxHash:", string(value))
         },"result","tx_hashes")
         // ignore the err of non existing case of non-coinbase transactions
+
+        //percent logging
         percentI := int32(math.Trunc(100*float64(i)/float64(blockLimit)))
         percentS := fmt.Sprintf("%d",percentI)
         if percentIndex == percentI{
-            loggerI.Println(percentS,"...")
+            loggerI.Println(percentS,"%...")
             percentIndex += 1
         }
     }
-
     duration := time.Since(start)
 
     loggerI.Println("[INFO] Done")
