@@ -22,6 +22,7 @@
 ### Go Patch ###
 /vendor/
 /Godeps/
+/src/old/
 
 ### Linux ###
 *~
@@ -41,3 +42,6 @@
 # End of https://www.toptal.com/developers/gitignore/api/linux,go
 
 *.log
+*.csv
+
+phase1
