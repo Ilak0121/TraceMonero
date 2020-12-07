@@ -86,8 +86,7 @@ func main() {
                             //fmt.Println("[INFO] tx, data, idx :",TracedTxInputs[string(txInfo.TxHash)], NonRingCTSpent[txAmount], idx)
                         }
                     }
-                } else if txInfo.Version == 2 {
-                    //pass at this time
+                //} else if txInfo.Version == 2 {   //pass at this time
                 } else {
                     loggerE.Println("other transaction version")
                     os.Exit(-1)
