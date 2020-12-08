@@ -137,7 +137,7 @@ type TxInputInfo struct {   // info for each transaction
     Version     int64       // nonRingCT:0 & RingCT:1
     TxHash      []byte
     Amounts     []int64
-    Goffsetss   [][]int64   // set of global offsets
+    Goffsetss   [][]int64   // set of global offsets Vin:Offset
 }
 
 func GetTxInputInfo(txHashes [][]byte, loggerE *log.Logger) (txInfos []*TxInputInfo) {
