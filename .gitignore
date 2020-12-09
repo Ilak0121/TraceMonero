@@ -23,6 +23,7 @@
 /vendor/
 /Godeps/
 /src/old/
+/src/dbfile/
 
 ### Linux ###
 *~
@@ -43,3 +44,5 @@
 
 *.log
 *.csv
+
+phase1

@@ -2,16 +2,11 @@ package main
 
 import (
     "fmt"
-    //"reflect"
     "time"
     "log"
     "net/http"
-    //"net/url"
-    //"os"
-    //"math"
     "io/ioutil"
     "bytes"
-    //"encoding/json"
     "strconv"
     "github.com/buger/jsonparser"
 )
@@ -20,14 +15,9 @@ const (
     urlTx       = "http://127.0.0.1:18081/get_transactions"
     urlRPC      = "http://127.0.0.1:18081/json_rpc"
     BlockLimit  = 2238270
-
 )
 
-/*
-    GetBlock (block_height int32)
-
-*/
-func GetBlock(block_height int32, loggerE *log.Logger) []byte {
+func GetBlock(block_height int32) []byte {
     str := fmt.Sprintf(`{"method":"get_block", "jsonrpc":"2.0", "id":"0", "params":{"height":%d}`, block_height)
     jsonStr := []byte(str)
 
@@ -48,17 +38,17 @@ func GetBlock(block_height int32, loggerE *log.Logger) []byte {
     }
 
     body,_ := ioutil.ReadAll(resp.Body)
-    
+
     return body
 }
 
 /**
 * @Brief: return transaction hashes from given block height.
 */
-func NCBTxsFromBlock(block_height int32, loggerE *log.Logger) [][]byte {
+func NCBTxsFromBlock(block_height int32) [][]byte {
     var txHashes [][]byte
 
-    body := GetBlock(block_height, loggerE)
+    body := GetBlock(block_height)
 
     jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
         txHashes = append(txHashes, value)
@@ -76,7 +66,7 @@ func NCBTxsFromBlock(block_height int32, loggerE *log.Logger) [][]byte {
     return: 
         body contents as []byte
 */
-func GetTx(txHashes [][]byte, loggerE *log.Logger) []byte {
+func GetTx(txHashes [][]byte) []byte {
     //qeury string
     str := string(`{"decode_as_json":True, "txs_hashes":[`)
     for i, txHash := range txHashes {
@@ -111,8 +101,8 @@ func GetTx(txHashes [][]byte, loggerE *log.Logger) []byte {
     return body
 }
 
-func GetTxData(txHashes [][]byte, loggerE *log.Logger) (jsons []string, indices []string){
-    body := GetTx(txHashes, loggerE)
+func GetTxData(txHashes [][]byte) (jsons []string, indices []string){
+    body := GetTx(txHashes)
     jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
         asJson, err := jsonparser.GetString(value, "as_json")
         if err!=nil{
@@ -129,20 +119,9 @@ func GetTxData(txHashes [][]byte, loggerE *log.Logger) (jsons []string, indices 
     return
 }
 
-/**
-* @Brief: format of transaction input information; 
-* Each vin contains multiple txin_v which includes mix_ins.
-*/
-type TxInputInfo struct {   // info for each transaction
-    Version     int64       // nonRingCT:0 & RingCT:1
-    TxHash      []byte
-    Amounts     []int64
-    Goffsetss   [][]int64   // set of global offsets Vin:Offset
-}
-
-func GetTxInputInfo(txHashes [][]byte, loggerE *log.Logger) (txInfos []*TxInputInfo) {
+func GetTxInputInfo(txHashes [][]byte) (txInfos []*TxInfo) {
     log.SetFlags(log.LstdFlags | log.Lshortfile)
-    body := GetTx(txHashes, loggerE)
+    body := GetTx(txHashes)
 
     // for each tx
     jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
@@ -160,7 +139,6 @@ func GetTxInputInfo(txHashes [][]byte, loggerE *log.Logger) (txInfos []*TxInputI
         }
         byteAsJson := []byte(asJson)
 
-        //fmt.Println("[DBG] version:",string(asJson))
         version, err := jsonparser.GetInt(byteAsJson, "version")
         if err!=nil {
             loggerE.Println(err)
@@ -193,7 +171,7 @@ func GetTxInputInfo(txHashes [][]byte, loggerE *log.Logger) (txInfos []*TxInputI
             goffsetss = append(goffsetss, goffsets)
         },"vin")
 
-        txInfos = append(txInfos, &TxInputInfo{version, txHash, amounts, goffsetss})
+        txInfos = append(txInfos, &TxInfo{version, txHash, amounts, goffsetss})
     }, "txs")
 
     return

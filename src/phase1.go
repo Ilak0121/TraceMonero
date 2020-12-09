@@ -1,20 +1,16 @@
 package main
 
 import (
-    //"fmt"
     "log"
     "os"
-    //"strings"
-    //"strconv"
-    //"encoding/csv"
 )
 
-type Ofst int64
-type Amnt int64
+//type Ofst int64
+//type Amnt int64
 
-var numIter int = 3 //5
-var blkStartHeight int32 = 0 //1220000
-var blkHeight int32 = 100000 //BlockLimit
+//var numIter int = 3 //5
+//var blkStartHeight int32 = 0  //it is fixed now! do not change
+var blkHeight int32 = BlockLimit
 
 var (
     loggerI *log.Logger
@@ -23,17 +19,17 @@ var (
 )
 
 func main() {
-    var i int32
+    //var i int32
 
-    var Num_zero_mixin int64 = 0
-    var Num_traced_txin int64 = 0
-    var Num_total_txin int64 = 0
+    //var Num_zero_mixin int64 = 0
+    //var Num_traced_txin int64 = 0
+    //var Num_total_txin int64 = 0
 
     //var RingCTSpent     map[Ofst]bool           = make(map[Ofst]bool)
-    var NonRingCTSpent  map[Amnt]map[Ofst]bool  = make(map[Amnt]map[Ofst]bool)
+    ////var NonRingCTSpent  map[Amnt]map[Ofst]bool  = make(map[Amnt]map[Ofst]bool)
 
     // --- 
-    f, err := os.OpenFile("./log/phase1.log",os.O_APPEND|os.O_CREATE|os.O_WRONLY,0644)
+    f, err := os.OpenFile("./log/dbUpdate.log",os.O_APPEND|os.O_CREATE|os.O_WRONLY,0644)
     if err!=nil{
         log.Fatal(err)
     }
@@ -44,16 +40,24 @@ func main() {
     loggerD = log.New(f, "[DEBUG] ", log.LstdFlags|log.Lshortfile)
 
     // --- 
-    TIB := NewTracingInputsBlock(blkHeight)
+    tb := NewTracingBlocks()
+    defer tb.db.Close()
 
+    tb.DBInit(blkHeight)
+
+
+
+
+    //---
+    /*
     for iterBC:=0; iterBC<numIter; iterBC++ {
         var progress int32 = blkStartHeight/20000
 
         loggerI.Printf("%d'th iteration.\n", iterBC)
         for i=blkStartHeight ; i<blkHeight ; i++ {
             if iterBC == 0 {
-                txHashes := NCBTxsFromBlock(i,loggerE)
-                txInfos := GetTxInputInfo(txHashes,loggerE)
+                txHashes := NCBTxsFromBlock(i)
+                txInfos := GetTxInputInfo(txHashes)
                 TIB.AddTxsForBlock(txInfos, blkHeight)
             }
 
@@ -106,11 +110,12 @@ func main() {
         }// end one blockchain
 
     } // end iterBC
+    */
 
-    loggerI.Println("*Program Completed*...")
-    loggerI.Println("# of total txins :",Num_total_txin)
-    loggerI.Println("# of zero mix-ins :",Num_zero_mixin)
-    loggerI.Println("# of total traced txins (effective 0 mix-in) :",Num_traced_txin)
+    loggerI.Println("** Program Completed **")
+    //loggerI.Println("# of total txins :",Num_total_txin)
+    //loggerI.Println("# of zero mix-ins :",Num_zero_mixin)
+    //loggerI.Println("# of total traced txins (effective 0 mix-in) :",Num_traced_txin)
 
     /*
     // amounts and offsets
