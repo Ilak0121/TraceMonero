@@ -5,12 +5,15 @@ import (
     "os"
 )
 
-//type Ofst int64
-//type Amnt int64
+type Ofst int64
+type Amnt int64
 
-//var numIter int = 3 //5
-//var blkStartHeight int32 = 0  //it is fixed now! do not change
-var blkHeight int32 = BlockLimit
+const (
+    numIter = 7
+    blkStartHeight = 0  //it is fixed now! do not change
+    blkHeight = BlockLimit
+)
+
 
 var (
     loggerI *log.Logger
@@ -19,17 +22,17 @@ var (
 )
 
 func main() {
-    //var i int32
+    var i int32
 
-    //var Num_zero_mixin int64 = 0
-    //var Num_traced_txin int64 = 0
-    //var Num_total_txin int64 = 0
+    var Num_zero_mixin int64 = 0
+    var Num_traced_txin int64 = 0
+    var Num_total_txin int64 = 0
 
     //var RingCTSpent     map[Ofst]bool           = make(map[Ofst]bool)
-    ////var NonRingCTSpent  map[Amnt]map[Ofst]bool  = make(map[Amnt]map[Ofst]bool)
+    var NonRingCTSpent  map[Amnt]map[Ofst]bool  = make(map[Amnt]map[Ofst]bool)
 
-    // --- 
-    f, err := os.OpenFile("./log/dbUpdate.log",os.O_APPEND|os.O_CREATE|os.O_WRONLY,0644)
+    // --- log setting
+    f, err := os.OpenFile("./log/phase1_v1.1.log",os.O_APPEND|os.O_CREATE|os.O_WRONLY,0644)
     if err!=nil{
         log.Fatal(err)
     }
@@ -39,30 +42,20 @@ func main() {
     loggerE = log.New(f, "[ERROR] ", log.LstdFlags|log.Lshortfile)
     loggerD = log.New(f, "[DEBUG] ", log.LstdFlags|log.Lshortfile)
 
-    // --- 
+    // --- db init 
     tb := NewTracingBlocks()
     defer tb.db.Close()
 
     tb.DBInit(blkHeight)
 
-
-
-
-    //---
-    /*
+    // --- tracing inputs
     for iterBC:=0; iterBC<numIter; iterBC++ {
-        var progress int32 = blkStartHeight/20000
-
         loggerI.Printf("%d'th iteration.\n", iterBC)
-        for i=blkStartHeight ; i<blkHeight ; i++ {
-            if iterBC == 0 {
-                txHashes := NCBTxsFromBlock(i)
-                txInfos := GetTxInputInfo(txHashes)
-                TIB.AddTxsForBlock(txInfos, blkHeight)
-            }
 
-            for _, tti := range TIB.TracingTxInputs[i] {
-                ti := tti.TxInputs //one tx
+        for i=blkStartHeight ; i<blkHeight ; i++ {
+            block := tb.GetBlock(i)
+
+            for _, ti := range block.TxInputs {
 
                 if ti.Version == 1 {
                     if len(ti.Amounts) != len(ti.Goffsetss) {
@@ -85,9 +78,8 @@ func main() {
                                 untraced_offsets = append(untraced_offsets, offset)
                             }
                         }
-                        loggerD.Println("untraced_offsets, goffsets: ",untraced_offsets, ti.Goffsetss[j])
+
                         if len(untraced_offsets) == 1 {
-                            //loggerD.Println("blk, tx, tti: ",i,string(ti.TxHash),tti)
 
                             if _, ok := NonRingCTSpent[amnt]; !ok{
                                 NonRingCTSpent[amnt] = make(map[Ofst]bool)
@@ -98,24 +90,17 @@ func main() {
                     }
                 } else if ti.Version == 2 {   //pass at this time
                 } else {
-                    loggerE.Println("other transaction version")
+                    loggerD.Println("other transaction version exist")
                 }
             }
 
-            //logging progress
-            if progress++; progress-1 == (i/20000) { 
-                loggerI.Printf("\tprogress of a iter.: %d\n",i)
-            }
-
         }// end one blockchain
-
     } // end iterBC
-    */
 
     loggerI.Println("** Program Completed **")
-    //loggerI.Println("# of total txins :",Num_total_txin)
-    //loggerI.Println("# of zero mix-ins :",Num_zero_mixin)
-    //loggerI.Println("# of total traced txins (effective 0 mix-in) :",Num_traced_txin)
+    loggerI.Println("# of total txins :",Num_total_txin)
+    loggerI.Println("# of zero mix-ins :",Num_zero_mixin)
+    loggerI.Println("# of total traced txins (effective 0 mix-in) :",Num_traced_txin)
 
     /*
     // amounts and offsets

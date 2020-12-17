@@ -101,6 +101,10 @@ func NewTracingBlocks() *TracingBlocks {
 
         return nil
     })
+    if err!=nil {
+        loggerE.Println("db creation failed")
+        os.Exit(1)
+    }
 
     return tb
 }
@@ -149,6 +153,11 @@ func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
 }
 
 func (tb *TracingBlocks) DBInit(height int32) {
+    if tb.length == height {
+        loggerI.Printf("db is fully synchronized...\n")
+        return
+    }
+
     loggerI.Printf("** db update start with length: %d **\n", tb.length)
 
     var apercent int32 = height/int32(100)
