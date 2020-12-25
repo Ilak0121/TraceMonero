@@ -3,7 +3,6 @@ package main
 import (
     "fmt"
     "time"
-    "log"
     "net/http"
     "io/ioutil"
     "bytes"
@@ -99,10 +98,10 @@ func GetTxsFromBlock(block_height int32) ([][]byte, []byte) {
     body := GetBlock(block_height)
 
     //timestamp
-    timestamp, _, _, err := jsonparser.Get(body, "result", "block_header", "timestamp")
+    timestamp, _, _, _ := jsonparser.Get(body, "result", "block_header", "timestamp")
 
     //coinbase tx
-    CBTx, _, _, err := jsonparser.Get(body, "result", "miner_tx_hash")
+    CBTx, _, _, _ := jsonparser.Get(body, "result", "miner_tx_hash")
     txHashes = append(txHashes, CBTx)
 
     //non-coinbase txs
@@ -120,37 +119,51 @@ func GetTxInputInfo(txHashes [][]byte) ([]*TxInfo) {
 
     // for each tx
     jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
-        var amounts     []int64
-        var goffsetss   [][]int64
+        var isCoinbase                          bool = false
+        var amounts, outIndices, outAmounts     []int64
+        var goffsetss                           [][]int64
 
-        //structure extra info to be added
-        //IsCoinbase, 
-
-        // error handling?
         txHash, _, _, _ := jsonparser.Get(value, "tx_hash")
-        asJson, _, _, _ := jsonparser.Get(value, "as_json")
-        version, _ := jsonparser.GetInt(asJson, "version")
+        asJson, _ := jsonparser.GetString(value, "as_json")
+        byteAsJson := []byte(asJson)
+        version, _      := jsonparser.GetInt(byteAsJson, "version")
+
+        jsonparser.ArrayEach(value, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
+            data, _ := strconv.Atoi(string(value))
+            outIndices = append(outIndices, int64(data))
+        },"output_indices")
 
         //for each txin_v, get amount and goffsets
         jsonparser.ArrayEach(byteAsJson, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
             var amount, base int64 = 0, 0
             var goffsets []int64
 
-            amount, _ = jsonparser.GetInt(value, "key", "amount")
+            if _, t, _, _ := jsonparser.Get(value, "gen"); t!=jsonparser.NotExist {
+                isCoinbase = true
 
-            jsonparser.ArrayEach(value, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
-                buf, _ := strconv.Atoi(string(value))
-                loffset := int64(buf)
-                goffsets = append(goffsets, loffset+base)
-                base += loffset
-            },"key","key_offsets")
+            } else {
+                amount, _ = jsonparser.GetInt(value, "key", "amount")
 
-            amounts = append(amounts, amount)
-            goffsetss = append(goffsetss, goffsets)
+                jsonparser.ArrayEach(value, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
+                    buf, _ := strconv.Atoi(string(value))
+                    loffset := int64(buf)
+                    goffsets = append(goffsets, loffset+base)
+                    base += loffset
+                },"key","key_offsets")
+
+                amounts = append(amounts, amount)
+                goffsetss = append(goffsetss, goffsets)
+            }
 
         },"vin")
 
-        txInfos = append(txInfos, &TxInfo{version, txHash, amounts, goffsetss})
+        //for each output
+        jsonparser.ArrayEach(byteAsJson, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
+            amount, _ := jsonparser.GetInt(value,"amount")
+            outAmounts = append(outAmounts, amount)
+        },"vout")
+
+        txInfos = append(txInfos, &TxInfo{isCoinbase, version, txHash, amounts, goffsetss, []int64{}, outIndices, outAmounts})
 
     }, "txs")
 

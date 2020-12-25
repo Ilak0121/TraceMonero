@@ -8,18 +8,15 @@ type Amnt int64
 
 const (
     blkStartHeight = 0  //it is fixed now! do not change
-    BlockLimit  = 2238270
-    BlockHeightofPaper = 1240000
 
     numIter = 5
-
     blkHeight = BlockHeightofPaper
 )
 
 func Phase1(tb *TracingBlocks) {
     var zero_mixin, traced_txin, total_txin int64 = 0, 0, 0
 
-    var RingCTSpent     map[Ofst]bool           = make(map[Ofst]bool)
+    //var RingCTSpent     map[Ofst]bool           = make(map[Ofst]bool)
     var NonRingCTSpent  map[Amnt]map[Ofst]bool  = make(map[Amnt]map[Ofst]bool)
 
     var totalti []int = make([]int, blkHeight+1)

@@ -9,16 +9,24 @@ import (
     "github.com/boltdb/bolt"
 )
 
-const dbFile = "./dbfile/traceXMR.db"
-const traceBucket = "inputs"
+const (
+    dbFile = "./dbfile/traceXMR2.db"
+    traceBucket = "inputs"
+    BlockLimit  = 2238270
+    BlockHeightofPaper = 1240000
+)
 
 type TxInfo struct {        // info for each transaction
     IsCoinbase  bool    //**
     Version     int64       // nonRingCT:1 & RingCT:2
     TxHash      []byte
+
     Amounts     []int64
     Goffsetss   [][]int64   // set of global offsets Vin:Offset
     Roffsets    []int64 //**
+
+    OutIndices  []int64
+    OutAmounts  []int64
 }
 
 type BlockTxs struct {
@@ -99,7 +107,6 @@ func NewTracingBlocks() *TracingBlocks {
             }
             tb.length = int32(length)
         }
-        loggerI.Printf("db init with %d length\n", tb.length)
 
         return nil
     })
@@ -108,7 +115,7 @@ func NewTracingBlocks() *TracingBlocks {
         os.Exit(1)
     }
 
-    tb.DBInit(BlockLimit)
+    tb.DBInit(BlockHeightofPaper)
 
     return tb
 }
@@ -139,8 +146,7 @@ func (tb *TracingBlocks) PutBlock (bt *BlockTxs) {
 func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
     var v []byte
     if i >= tb.length {
-        loggerD.Printf("%d length\n",tb.length)
-        loggerE.Println("out of index")
+        loggerE.Println("out of index: %d\n",tb.length)
         return nil
     }
     err := tb.db.View(func(tx *bolt.Tx) error {
@@ -156,7 +162,7 @@ func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
 
 func (tb *TracingBlocks) DBInit(height int32) {
     if tb.length == height {
-        loggerI.Printf("db is fully synchronized...\n")
+        loggerI.Printf("db is fully synchronized (length: %d)...\n", tb.length)
         return
     }
 
