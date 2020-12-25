@@ -24,6 +24,7 @@
 /Godeps/
 /src/old/
 /src/dbfile/
+/src/data/
 
 ### Linux ###
 *~
@@ -45,4 +46,4 @@
 *.log
 *.csv
 
-phase1
+xmrtrace

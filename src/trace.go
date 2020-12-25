@@ -12,15 +12,18 @@ import (
 const dbFile = "./dbfile/traceXMR.db"
 const traceBucket = "inputs"
 
-type TxInfo struct {   // info for each transaction
-    Version     int64       // nonRingCT:0 & RingCT:1
+type TxInfo struct {        // info for each transaction
+    IsCoinbase  bool    //**
+    Version     int64       // nonRingCT:1 & RingCT:2
     TxHash      []byte
     Amounts     []int64
     Goffsetss   [][]int64   // set of global offsets Vin:Offset
+    Roffsets    []int64 //**
 }
 
 type BlockTxs struct {
     TxInputs    []*TxInfo
+    Timestamp   []byte
 }
 
 type TracingBlocks struct {
@@ -29,9 +32,10 @@ type TracingBlocks struct {
 }
 
 //---
-func NewBlockTxs(tis []*TxInfo) *BlockTxs {
+func NewBlockTxs(tis []*TxInfo, timestamp []byte) *BlockTxs {
     bt := new(BlockTxs)
     bt.TxInputs = tis
+    bt.Timestamp = timestamp
     return bt
 }
 
@@ -79,21 +83,19 @@ func NewTracingBlocks() *TracingBlocks {
         if b==nil {
             b,err := tx.CreateBucket([]byte(traceBucket))
             if err!=nil {
-                loggerE.Println(err)
-                os.Exit(1)
+                return err
             }
 
             err = b.Put([]byte("l"),[]byte("0"))
             if err!=nil {
-                loggerE.Println(err)
-                os.Exit(1)
+                return err
             }
 
             tb.length = 0
         } else {
             length, err := strconv.Atoi(string(b.Get([]byte("l"))))
             if err!=nil {
-                loggerE.Println(err)
+                return err
             }
             tb.length = int32(length)
         }
@@ -102,9 +104,11 @@ func NewTracingBlocks() *TracingBlocks {
         return nil
     })
     if err!=nil {
-        loggerE.Println("db creation failed")
+        loggerE.Println(err)
         os.Exit(1)
     }
+
+    tb.DBInit(BlockLimit)
 
     return tb
 }
@@ -116,15 +120,13 @@ func (tb *TracingBlocks) PutBlock (bt *BlockTxs) {
 
         err := b.Put([]byte(index),bt.Serialization())
         if err!=nil {
-            loggerE.Println(err)
-            os.Exit(1)
+            return err
         }
 
         tb.length++
         err = b.Put([]byte("l"),[]byte(fmt.Sprint(tb.length)))
         if err!=nil {
-            loggerE.Println(err)
-            os.Exit(1)
+            return err
         }
 
         return nil
@@ -169,9 +171,9 @@ func (tb *TracingBlocks) DBInit(height int32) {
             progress++
         }
 
-        txHashes := NCBTxsFromBlock(i)
+        txHashes, timestamp := GetTxsFromBlock(i)
         txInfos := GetTxInputInfo(txHashes)
-        tb.PutBlock(NewBlockTxs(txInfos))
+        tb.PutBlock(NewBlockTxs(txInfos, timestamp))
     }
 
     loggerI.Printf("** db update finished **\n")

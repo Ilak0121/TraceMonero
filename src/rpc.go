@@ -14,8 +14,14 @@ import (
 const (
     urlTx       = "http://127.0.0.1:18081/get_transactions"
     urlRPC      = "http://127.0.0.1:18081/json_rpc"
-    BlockLimit  = 2238270
 )
+
+/** index
+* 1. GetBlock 
+* 2. GetTx
+* 3. TxsFromBlock
+* 4. GetTxInputInfo
+**/
 
 func GetBlock(block_height int32) []byte {
     str := fmt.Sprintf(`{"method":"get_block", "jsonrpc":"2.0", "id":"0", "params":{"height":%d}`, block_height)
@@ -42,27 +48,10 @@ func GetBlock(block_height int32) []byte {
     return body
 }
 
-/**
-* @Brief: return transaction hashes from given block height.
-*/
-func NCBTxsFromBlock(block_height int32) [][]byte {
-    var txHashes [][]byte
-
-    body := GetBlock(block_height)
-
-    jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
-        txHashes = append(txHashes, value)
-    },"result","tx_hashes")
-
-    return txHashes
-}
-
 /*
     @Brief: return response body of RPC request 'get_transaction' by given set of transaction hashes.
-    GetTx (txHash []string) []byte
     input:
-        txHash = list of transaction hashes
-        - e.g. ['123124513412','1253523523']
+        txHash = list of transaction hashes - e.g. ['123124513412','1253523523']
     return: 
         body contents as []byte
 */
@@ -101,6 +90,75 @@ func GetTx(txHashes [][]byte) []byte {
     return body
 }
 
+/**
+* @Brief: return transaction hashes from given block height.
+*/
+func GetTxsFromBlock(block_height int32) ([][]byte, []byte) {
+    var txHashes [][]byte
+
+    body := GetBlock(block_height)
+
+    //timestamp
+    timestamp, _, _, err := jsonparser.Get(body, "result", "block_header", "timestamp")
+
+    //coinbase tx
+    CBTx, _, _, err := jsonparser.Get(body, "result", "miner_tx_hash")
+    txHashes = append(txHashes, CBTx)
+
+    //non-coinbase txs
+    jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
+        txHashes = append(txHashes, value)
+    },"result","tx_hashes")
+
+    return txHashes, timestamp
+}
+
+func GetTxInputInfo(txHashes [][]byte) ([]*TxInfo) {
+    var txInfos []*TxInfo
+
+    body := GetTx(txHashes)
+
+    // for each tx
+    jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
+        var amounts     []int64
+        var goffsetss   [][]int64
+
+        //structure extra info to be added
+        //IsCoinbase, 
+
+        // error handling?
+        txHash, _, _, _ := jsonparser.Get(value, "tx_hash")
+        asJson, _, _, _ := jsonparser.Get(value, "as_json")
+        version, _ := jsonparser.GetInt(asJson, "version")
+
+        //for each txin_v, get amount and goffsets
+        jsonparser.ArrayEach(byteAsJson, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
+            var amount, base int64 = 0, 0
+            var goffsets []int64
+
+            amount, _ = jsonparser.GetInt(value, "key", "amount")
+
+            jsonparser.ArrayEach(value, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
+                buf, _ := strconv.Atoi(string(value))
+                loffset := int64(buf)
+                goffsets = append(goffsets, loffset+base)
+                base += loffset
+            },"key","key_offsets")
+
+            amounts = append(amounts, amount)
+            goffsetss = append(goffsetss, goffsets)
+
+        },"vin")
+
+        txInfos = append(txInfos, &TxInfo{version, txHash, amounts, goffsetss})
+
+    }, "txs")
+
+    return txInfos
+}
+
+//legacy function, 
+/*
 func GetTxData(txHashes [][]byte) (jsons []string, indices []string){
     body := GetTx(txHashes)
     jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
@@ -117,62 +175,4 @@ func GetTxData(txHashes [][]byte) (jsons []string, indices []string){
     }, "txs")
 
     return
-}
-
-func GetTxInputInfo(txHashes [][]byte) (txInfos []*TxInfo) {
-    log.SetFlags(log.LstdFlags | log.Lshortfile)
-    body := GetTx(txHashes)
-
-    // for each tx
-    jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
-        var amounts     []int64
-        var goffsetss   [][]int64
-
-        txHash, _, _, err := jsonparser.Get(value, "tx_hash")
-        if err!=nil {
-            loggerE.Println(err)
-        }
-
-        asJson, err := jsonparser.GetString(value, "as_json")
-        if err!=nil {
-            loggerE.Println(err)
-        }
-        byteAsJson := []byte(asJson)
-
-        version, err := jsonparser.GetInt(byteAsJson, "version")
-        if err!=nil {
-            loggerE.Println(err)
-        }
-
-        //for each txin_v, get amount and goffsets
-        jsonparser.ArrayEach(byteAsJson, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
-            var amount int64
-            var goffsets []int64
-
-            amount, err = jsonparser.GetInt(value, "key", "amount")
-            if err!=nil {
-                loggerE.Println(err)
-            }
-
-            var base int64 = 0
-            jsonparser.ArrayEach(value, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
-                //fmt.Println("[DBG] value:",string(value))
-
-                buf, err := strconv.Atoi(string(value))
-                if err!=nil {
-                    loggerE.Println(err)
-                }
-                loffset := int64(buf)
-                goffsets = append(goffsets, loffset+base)
-                base += loffset
-            },"key","key_offsets")
-
-            amounts = append(amounts, amount)
-            goffsetss = append(goffsetss, goffsets)
-        },"vin")
-
-        txInfos = append(txInfos, &TxInfo{version, txHash, amounts, goffsetss})
-    }, "txs")
-
-    return
-}
+}*/
