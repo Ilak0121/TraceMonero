@@ -25,11 +25,14 @@ type TxInfo struct {   // info for each transaction
 type BlockTxs struct {
     TxInputs    []*TxInfo
 }
+// NewBlockTxs, Serialization, DeserializeBlockTxs,
 
 type TracingBlocks struct {
     db      *bolt.DB
     length  int32
 }
+// NewTracingBlocks, PutBlock, GetBlock, DBInit,
+// TimestampInit, PutTimestamp, GetTimestamp
 
 //---
 func NewBlockTxs(tis []*TxInfo) *BlockTxs {
@@ -96,8 +99,23 @@ func NewTracingBlocks() *TracingBlocks {
             if err!=nil {
                 return err
             }
-
             tb.length = int32(length)
+
+            //for timestamp
+            ltvalue := b.Get([]byte("lt"))
+            if ltvalue!=nil {
+                length, err = strconv.Atoi(string(ltvalue))
+                if err!=nil {
+                    return err
+                }
+                Timelen = int32(length)
+            } else {
+                Timelen = 0
+                err = b.Put([]byte("lt"),[]byte("0"))
+                if err!=nil {
+                    return err
+                }
+            }
         }
 
         return nil
@@ -108,6 +126,7 @@ func NewTracingBlocks() *TracingBlocks {
     }
 
     tb.DBInit(BlockLimit)
+    tb.TimestampInit(BlockLimit)
 
     return tb
 }
@@ -139,7 +158,7 @@ func (tb *TracingBlocks) PutBlock (bt *BlockTxs) {
 func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
     var v []byte
     if i >= tb.length {
-        loggerE.Println("out of index: %d\n",tb.length)
+        loggerE.Println("out of index: %d >= %d\n", i, tb.length)
         return nil
     }
     err := tb.db.View(func(tx *bolt.Tx) error {
@@ -173,6 +192,75 @@ func (tb *TracingBlocks) DBInit(height int32) {
         txHashes := NCBTxsFromBlock(i)
         txInfos := GetTxInputInfo(txHashes)
         tb.PutBlock(NewBlockTxs(txInfos))
+    }
+
+    loggerI.Printf("** db update finished **\n")
+}
+
+var Timelen int32
+
+func (tb *TracingBlocks) PutTimestamp (timestamp []byte) {
+    err := tb.db.Update(func(tx *bolt.Tx) error {
+        b := tx.Bucket([]byte(traceBucket))
+        index := strconv.FormatInt(int64(Timelen),10)
+        index += "t"
+
+        err := b.Put([]byte(index), timestamp)
+        if err!=nil {
+            return err
+        }
+
+        Timelen++
+        err = b.Put([]byte("lt"),[]byte(fmt.Sprint(Timelen)))
+        if err!=nil {
+            return err
+        }
+
+        return nil
+    })
+    if err!=nil {
+        loggerE.Println(err)
+        os.Exit(1)
+    }
+}
+
+func (tb *TracingBlocks) GetTimestamp (i int32) []byte {
+    var v []byte
+    if i>=Timelen {
+        loggerE.Println("out of index: %d >= %d\n", i, Timelen)
+        return nil
+    }
+    err := tb.db.View(func(tx *bolt.Tx) error {
+        b := tx.Bucket([]byte(traceBucket))
+        index := fmt.Sprint(i) + "t"
+        v = b.Get([]byte(index))
+        return nil
+    })
+    if err!=nil {
+        loggerE.Println(err)
+    }
+    return v
+}
+
+func (tb *TracingBlocks) TimestampInit(height int32) {
+    if Timelen == height {
+        loggerI.Printf("db timestamp is fully synchronized (length: %d)...\n", Timelen)
+        return
+    }
+
+    loggerI.Printf("** db timestamp update start with length: %d **\n", Timelen)
+
+    var apercent int32 = height/int32(100)
+    var progress int32 = Timelen/apercent
+
+    for i:=Timelen; i<height; i++ {
+        if progress == i/apercent {
+            loggerI.Printf("db update progress: %d%%...\n", progress)
+            progress++
+        }
+
+        timestamp := GetBlockTimestamp(i)
+        tb.PutTimestamp(timestamp)
     }
 
     loggerI.Printf("** db update finished **\n")

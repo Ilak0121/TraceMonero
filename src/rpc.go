@@ -15,6 +15,14 @@ const (
     urlRPC      = "http://127.0.0.1:18081/json_rpc"
 )
 
+/*
+* GetBlock
+* GetTx
+* NCBTxsFromBlock
+* GetTxInputInfo
+* GetBlockTimestamp
+*/
+
 func GetBlock(block_height int32) []byte {
     str := fmt.Sprintf(`{"method":"get_block", "jsonrpc":"2.0", "id":"0", "params":{"height":%d}`, block_height)
     jsonStr := []byte(str)
@@ -137,6 +145,18 @@ func GetTxInputInfo(txHashes [][]byte) ([]*TxInfo) {
     return txInfos
 }
 
+func GetBlockTimestamp(i int32) []byte {
+    body := GetBlock(i)
+
+    timestamp, _, _, err := jsonparser.Get(body, "result", "block_header", "timestamp")
+    if err!=nil {
+        loggerE.Println(err)
+    }
+
+    time.Sleep(1000 * time.Millisecond) //to lower the burden
+    return timestamp
+}
+
 /* legacy code
 func GetTxData(txHashes [][]byte) (jsons []string, indices []string){
     body := GetTx(txHashes)
@@ -155,3 +175,4 @@ func GetTxData(txHashes [][]byte) (jsons []string, indices []string){
 
     return
 }*/
+

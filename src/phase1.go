@@ -29,6 +29,7 @@ func Phase1(tb *TracingBlocks) {
             block := tb.GetBlock(i)
 
             for _, ti := range block.TxInputs {
+
                 if ti.Version == 1 {
                     for j:=0; j<len(ti.Amounts); j++ { //each txin_v
                         var untraced_offsets []Ofst = make([]Ofst, 0, len(ti.Amounts))
