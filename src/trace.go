@@ -9,8 +9,11 @@ import (
     "github.com/boltdb/bolt"
 )
 
-const dbFile = "./dbfile/traceXMR.db"
-const traceBucket = "inputs"
+const (
+    dbFile = "./dbfile/traceXMR.db"
+    traceBucket = "inputs"
+    BlockLimit  = 2238270
+)
 
 type TxInfo struct {   // info for each transaction
     Version     int64       // nonRingCT:0 & RingCT:1
@@ -77,27 +80,25 @@ func NewTracingBlocks() *TracingBlocks {
         b := tx.Bucket([]byte(traceBucket))
 
         if b==nil {
-            b,err := tx.CreateBucket([]byte(traceBucket))
+            b, err := tx.CreateBucket([]byte(traceBucket))
             if err!=nil {
-                loggerE.Println(err)
-                os.Exit(1)
+                return err
             }
 
             err = b.Put([]byte("l"),[]byte("0"))
             if err!=nil {
-                loggerE.Println(err)
-                os.Exit(1)
+                return err
             }
 
             tb.length = 0
         } else {
             length, err := strconv.Atoi(string(b.Get([]byte("l"))))
             if err!=nil {
-                loggerE.Println(err)
+                return err
             }
+
             tb.length = int32(length)
         }
-        loggerI.Printf("db init with %d length\n", tb.length)
 
         return nil
     })
@@ -105,6 +106,8 @@ func NewTracingBlocks() *TracingBlocks {
         loggerE.Println("db creation failed")
         os.Exit(1)
     }
+
+    tb.DBInit(BlockLimit)
 
     return tb
 }
@@ -116,29 +119,27 @@ func (tb *TracingBlocks) PutBlock (bt *BlockTxs) {
 
         err := b.Put([]byte(index),bt.Serialization())
         if err!=nil {
-            loggerE.Println(err)
-            os.Exit(1)
+            return err
         }
 
         tb.length++
         err = b.Put([]byte("l"),[]byte(fmt.Sprint(tb.length)))
         if err!=nil {
-            loggerE.Println(err)
-            os.Exit(1)
+            return err
         }
 
         return nil
     })
     if err!=nil {
         loggerE.Println(err)
+        os.Exit(1)
     }
 }
 
 func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
     var v []byte
     if i >= tb.length {
-        loggerD.Printf("%d length\n",tb.length)
-        loggerE.Println("out of index")
+        loggerE.Println("out of index: %d\n",tb.length)
         return nil
     }
     err := tb.db.View(func(tx *bolt.Tx) error {
@@ -154,7 +155,7 @@ func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
 
 func (tb *TracingBlocks) DBInit(height int32) {
     if tb.length == height {
-        loggerI.Printf("db is fully synchronized...\n")
+        loggerI.Printf("db is fully synchronized (length: %d)...\n", tb.length)
         return
     }
 
