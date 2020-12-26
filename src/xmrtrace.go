@@ -15,7 +15,7 @@ var (
 )
 
 const (
-    logVer = "v1.4db"
+    logVer = "v1.4"
     logFile = "./log/phase1_"+logVer+".log"
     TotalInputsFile = "./data/totalInputsperBlk_"+logVer+".csv"
     TotalTracedInputsFile = "./data/totalTracedInputsperBlk_"+logVer+".csv"
@@ -39,22 +39,6 @@ func main() {
     defer tb.db.Close()
 
     //Phase1(tb)
-
-
-    /* UpdateBlock test code snippit
-    bt := tb.GetBlock(110)
-    tx := bt.TxInputs[1]
-    fmt.Printf("%v\n",tx.Roffsets)
-
-    /*
-    test := []int64{1,2,3,}
-    tx.Roffsets = test
-    tb.UpdateBlock(110,1,tx)
-    //---
-    bt = tb.GetBlock(110)
-    tx = bt.TxInputs[1]
-    fmt.Printf("%v\n",tx.Roffsets)
-    */
 
 }
 

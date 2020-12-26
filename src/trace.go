@@ -4,6 +4,7 @@ import (
     "os"
     "fmt"
     "bytes"
+    "errors"
     "strconv"
     "encoding/gob"
     "github.com/boltdb/bolt"
@@ -33,13 +34,23 @@ type BlockTxs struct {
     TxInputs    []*TxInfo
     Timestamp   []byte
 }
-// NewBlockTxs, Serialization, DeserializeBlockTxs,
+// NewBlockTxs, Serialization, DeserializeBlockTxs, GetTimestamp
+
+type OutInfo struct {
+    NonRing     map[int64]map[int64][]byte  //txHash
+    Ring        map[int64][]byte
+    THtoHeight  map[string]int32
+}
+// GetInfo - Hash, Height, Time 
+// SetInfo - Hash, Height, 
+// Serialization, DeserializeOutInfo
 
 type TracingBlocks struct {
     db      *bolt.DB
     length  int32
 }
 // NewTracingBlocks, PutBlock, GetBlock, UpdateBlock, DBInit,
+// PutOutInfo, GetOutInfo,  
 
 //---
 func NewBlockTxs(tis []*TxInfo, timestamp []byte) *BlockTxs {
@@ -73,6 +84,10 @@ func DeserializeBlockTxs (d []byte) *BlockTxs {
     }
 
     return &bt
+}
+
+func (bt *BlockTxs) GetTimestamp() []byte {
+    return bt.Timestamp
 }
 
 //---
@@ -205,5 +220,88 @@ func (tb *TracingBlocks) DBInit(height int32) {
     }
 
     loggerI.Printf("** db update finished **\n")
+}
+
+func (tb *TracingBlocks) GetOutInfo() *OutInfo {
+    var v   []byte
+
+    err := tb.db.View(func(tx *bolt.Tx) error {
+        b := tx.Bucket([]byte(traceBucket))
+        v := b.Get([]byte("oi"))
+        return nil
+    })
+    if v==nil {
+        var tmp OutInfo
+        tmp.NonRing = make(map[int64]map[int64][]byte)
+        tmp.Ring = make(map[int64][]byte)
+        tmp.THtoHeight = make(map[string]int32)
+        return &tmp
+    } else {
+        return DeserializeOutInfo(v)
+    }
+}
+
+func (tb *TracingBlocks) PutOutInfo(oi *OutInfo) {
+    err := tb.db.Update(func(tx *bolt.Tx) error {
+        b := tx.Bucket([]byte(traceBucket))
+        err := b.Put([]byte("oi"), oi.Serialization())
+        if err!=nil {
+            return err
+        )
+        return nil
+    })
+    if err!=nil {
+        loggerE.Println(err)
+    }
+}
+
+func (oi *OutInfo) GetInfo(amnt int64, ofst int64) ([]byte, int32, []byte, error) {
+    var hash, timestamp []byte
+    var height          int32
+    var ok              bool
+
+    if amnt!=0 {
+        hash, ok = oi.NonRing[amnt][ofst]
+    } else {
+        hash, ok = oi.Ring[ofst]
+    }
+    height, ok = oi.THtoHeight[string(hash)]
+
+    if ok==false {
+        return nil, 0, nil, errors.New("key does not exist")
+    }
+    timestamp = tb.db.GetBlock(height).Timestamp
+
+    return hash, height, timestamp, nil
+}
+
+func (oi *OutInfo) SetInfo(amnt int64, ofst int64, hash []byte, height int32) {
+
+}
+
+func (oi *OutInfo) Serialization() []byte {
+    var result bytes.Buffer
+
+    encoder := gob.NewEncoder(&result)
+
+    err := encoder. Encode(bt)
+    if err!=nil{
+        loggerE.Println(err)
+    }
+
+    return result.Bytes()
+}
+
+func DeserializeOutInfo(d []byte) *OutInfo {
+    var oi OutInfo
+
+    decoder := gob.NewDecoder(bytes.NewReader(d))
+
+    err := decoder.Decode(&oi)
+    if err!=nil {
+        loggerE.Println(err)
+    }
+
+    return &oi
 }
 
