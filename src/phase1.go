@@ -16,8 +16,8 @@ const (
 func Phase1(tb *TracingBlocks) {
     var zero_mixin, traced_txin, total_txin int64 = 0, 0, 0
 
-    //var RingCTSpent     map[Ofst]bool           = make(map[Ofst]bool)
-    var NonRingCTSpent  map[Amnt]map[Ofst]bool  = make(map[Amnt]map[Ofst]bool)
+    //var RingCTSpent     map[Ofst][]byte             = make(map[Ofst][]byte)
+    var NonRingCTSpent  map[Amnt]map[Ofst][]byte    = make(map[Amnt]map[Ofst][]byte)
 
     var totalti []int = make([]int, blkHeight+1)
     var totaltracedti []int = make([]int, blkHeight+1)

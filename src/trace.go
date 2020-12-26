@@ -33,11 +33,13 @@ type BlockTxs struct {
     TxInputs    []*TxInfo
     Timestamp   []byte
 }
+// NewBlockTxs, Serialization, DeserializeBlockTxs,
 
 type TracingBlocks struct {
     db      *bolt.DB
     length  int32
 }
+// NewTracingBlocks, PutBlock, GetBlock, UpdateBlock, DBInit,
 
 //---
 func NewBlockTxs(tis []*TxInfo, timestamp []byte) *BlockTxs {
@@ -158,6 +160,26 @@ func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
         loggerE.Println(err)
     }
     return DeserializeBlockTxs(v)
+}
+
+func (tb *TracingBlocks) UpdateBlock (height int32, offset int, ti *TxInfo) {
+    err := tb.db.Update(func(tx *bolt.Tx) error {
+        b := tx.Bucket([]byte(traceBucket))
+        index := strconv.FormatInt(int64(height),10)
+
+        bt := DeserializeBlockTxs(b.Get([]byte(fmt.Sprint(height))))
+        bt.TxInputs[offset] = ti
+
+        err := b.Put([]byte(index),bt.Serialization())
+        if err!=nil {
+            return err
+        }
+
+        return nil
+    })
+    if err!=nil {
+        loggerE.Println(err)
+    }
 }
 
 func (tb *TracingBlocks) DBInit(height int32) {
