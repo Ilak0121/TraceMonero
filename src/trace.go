@@ -37,9 +37,8 @@ type BlockTxs struct {
 // NewBlockTxs, Serialization, DeserializeBlockTxs, GetTimestamp
 
 type OutInfo struct {
-    NonRing     map[int64]map[int64][]byte  //txHash
-    Ring        map[int64][]byte
-    THtoHeight  map[string]int32
+    OfstToHash      map[int64]map[int64][]byte  //txHash
+    THtoHeight      map[string]int32
 }
 // GetInfo - Hash, Height, Time 
 // SetInfo - Hash, Height, 
@@ -50,7 +49,7 @@ type TracingBlocks struct {
     length  int32
 }
 // NewTracingBlocks, PutBlock, GetBlock, UpdateBlock, DBInit,
-// PutOutInfo, GetOutInfo,  
+// PutOutInfo, GetOutInfo, OutInfoInit
 
 //---
 func NewBlockTxs(tis []*TxInfo, timestamp []byte) *BlockTxs {
@@ -96,11 +95,7 @@ func (oi *OutInfo) GetInfo(amnt int64, ofst int64) ([]byte, int32, []byte, error
     var height          int32
     var ok              bool
 
-    if amnt!=0 {
-        hash, ok = oi.NonRing[amnt][ofst]
-    } else {
-        hash, ok = oi.Ring[ofst]
-    }
+    hash, ok = oi.OfstToHash[amnt][ofst]
     height, ok = oi.THtoHeight[string(hash)]
 
     if ok==false {
@@ -112,15 +107,11 @@ func (oi *OutInfo) GetInfo(amnt int64, ofst int64) ([]byte, int32, []byte, error
 }
 
 func (oi *OutInfo) SetInfo(amnt int64, ofst int64, hash []byte, height int32) {
-    if amnt!=0 {
-        if _, ok := oi.NonRing[amnt]; !ok {
-            oi.NonRing[amnt] = make(map[int64][]byte)
-        }
-        oi.NonRing[amnt][ofst] = hash
-    } else {
-        oi.Ring[ofst] = hash
+    if _, ok := oi.OfstToHash[amnt]; !ok {
+        oi.OfstToHash[amnt] = make(map[int64][]byte)
     }
 
+    oi.OfstToHash[amnt][ofst] = hash
     oi.THtoHeight[string(hash)] = height
 }
 
@@ -190,6 +181,7 @@ func NewTracingBlocks() *TracingBlocks {
         os.Exit(1)
     }
     tb.DBInit(BlockHeightofPaper)
+    tb.OutInfoInit(BlockHeightofPaper)
 
     return tb
 }
@@ -287,12 +279,9 @@ func (tb *TracingBlocks) GetOutInfo() *OutInfo {
         v := b.Get([]byte("oi"))
         return nil
     })
+
     if v==nil {
-        var tmp OutInfo
-        tmp.NonRing = make(map[int64]map[int64][]byte)
-        tmp.Ring = make(map[int64][]byte)
-        tmp.THtoHeight = make(map[string]int32)
-        return &tmp
+        return nil
     } else {
         return DeserializeOutInfo(v)
     }
@@ -310,5 +299,36 @@ func (tb *TracingBlocks) PutOutInfo(oi *OutInfo) {
     if err!=nil {
         loggerE.Println(err)
     }
+}
+
+func (tb *TracingBlocks) OutInfoInit(height int32) {
+    if tb.GetOutInfo() != nil {
+        loggerI.Printf("OutInfo is fully synchronized (length: %d)...\n", tb.length)
+        return
+    }
+
+    var tmp *OutInfo = new(OutInfo)
+    tmp.OfstToHash = make(map[int64]map[int64][]byte)
+    tmp.THtoHeight = make(map[string]int32)
+
+    for i:=int32(0); i<height; i++ {
+        apercent := height/int32(100)
+        progress := int32(0)
+
+        block := tb.GetBlock(i)
+        for _, ti := range block.TxInputs {
+            for j:=0; j<len(ti.OutIndices); j++ {
+                tmp.SetInfo(ti.OutAmounts[j], ti.OutIndices[j], ti.TxHash, i)
+            }
+        }
+
+        if progress == i/apercent {
+            loggerI.Printf("OutInfo update progress: %d%%...\n", progress)
+            progress++
+        }
+    }
+    tb.PutOutInfo(tmp)
+
+    loggerI.Printf("** OutInfo update finished **\n")
 }
 

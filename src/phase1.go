@@ -1,6 +1,7 @@
 package main
 
 import (
+    "reflect"
 )
 
 type Ofst int64
@@ -28,9 +29,16 @@ func Phase1(tb *TracingBlocks) {
 
         var i int32
         for i=blkStartHeight ; i<blkHeight ; i++ {
+
             block := tb.GetBlock(i)
 
-            for _, ti := range block.TxInputs {
+            for k, ti := range block.TxInputs {
+                if ti.IsCoinbase == true {
+                    continue
+                }
+
+                var roffsets []int64 = make([]int64, len(ti.Goffsetss))
+
                 if ti.Version == 1 {
                     for j:=0; j<len(ti.Amounts); j++ { //each txin_v
                         var untraced_offsets []Ofst = make([]Ofst, 0, len(ti.Amounts))
@@ -40,6 +48,9 @@ func Phase1(tb *TracingBlocks) {
                             if total_txin++; len(ti.Goffsetss[j])==1 {
                                 zero_mixin++
                             }
+                        } else if iterBC==numIter-1 {
+                            totaltracedti[i] += len(ti.Amounts) - len(untraced_offsets)
+                            totalti[i] += len(ti.Amounts)
                         }
 
                         for _, offset_r := range ti.Goffsetss[j] {
@@ -55,20 +66,17 @@ func Phase1(tb *TracingBlocks) {
                             }
                             NonRingCTSpent[amnt][untraced_offsets[0]] = true
                             traced_txin++
-                        }
-
-                        if iterBC==numIter-1 { //version 1.2
-                            totaltracedti[i] += len(ti.Amounts) - len(untraced_offsets)
-                            totalti[i] += len(ti.Amounts)
+                            roffsets[j] = int64(untraced_offsets[0])
                         }
                     }
                 } else if ti.Version == 2 {   // RingCT transaction
-                    if iterBC==0 {
-                        total_txin += int64(len(ti.Goffsetss))
-                    }
 
                 } else {
                     loggerD.Println("other transaction version exist")
+                }
+                if reflect.DeepEqual(roffsets,ti.Roffsets) == false {
+                    ti.Roffsets = roffsets
+                    tb.UpdateBlock(i, k, ti)
                 }
             }
 
