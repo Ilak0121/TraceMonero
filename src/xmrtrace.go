@@ -41,6 +41,21 @@ func main() {
     //Phase1(tb)
 
 
+    /* UpdateBlock test code snippit
+    bt := tb.GetBlock(110)
+    tx := bt.TxInputs[1]
+    fmt.Printf("%v\n",tx.Roffsets)
+
+    /*
+    test := []int64{1,2,3,}
+    tx.Roffsets = test
+    tb.UpdateBlock(110,1,tx)
+    //---
+    bt = tb.GetBlock(110)
+    tx = bt.TxInputs[1]
+    fmt.Printf("%v\n",tx.Roffsets)
+    */
+
 }
 
 
