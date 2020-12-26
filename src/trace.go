@@ -90,6 +90,66 @@ func (bt *BlockTxs) GetTimestamp() []byte {
     return bt.Timestamp
 }
 
+// ---
+func (oi *OutInfo) GetInfo(amnt int64, ofst int64) ([]byte, int32, []byte, error) {
+    var hash, timestamp []byte
+    var height          int32
+    var ok              bool
+
+    if amnt!=0 {
+        hash, ok = oi.NonRing[amnt][ofst]
+    } else {
+        hash, ok = oi.Ring[ofst]
+    }
+    height, ok = oi.THtoHeight[string(hash)]
+
+    if ok==false {
+        return nil, 0, nil, errors.New("key does not exist")
+    }
+    timestamp = tb.db.GetBlock(height).Timestamp
+
+    return hash, height, timestamp, nil
+}
+
+func (oi *OutInfo) SetInfo(amnt int64, ofst int64, hash []byte, height int32) {
+    if amnt!=0 {
+        if _, ok := oi.NonRing[amnt]; !ok {
+            oi.NonRing[amnt] = make(map[int64][]byte)
+        }
+        oi.NonRing[amnt][ofst] = hash
+    } else {
+        oi.Ring[ofst] = hash
+    }
+
+    oi.THtoHeight[string(hash)] = height
+}
+
+func (oi *OutInfo) Serialization() []byte {
+    var result bytes.Buffer
+
+    encoder := gob.NewEncoder(&result)
+
+    err := encoder. Encode(bt)
+    if err!=nil{
+        loggerE.Println(err)
+    }
+
+    return result.Bytes()
+}
+
+func DeserializeOutInfo(d []byte) *OutInfo {
+    var oi OutInfo
+
+    decoder := gob.NewDecoder(bytes.NewReader(d))
+
+    err := decoder.Decode(&oi)
+    if err!=nil {
+        loggerE.Println(err)
+    }
+
+    return &oi
+}
+
 //---
 func NewTracingBlocks() *TracingBlocks {
     tb := new(TracingBlocks)
@@ -99,12 +159,10 @@ func NewTracingBlocks() *TracingBlocks {
         loggerE.Println(err)
         os.Exit(1)
     }
-
     tb.db = db
 
     err = db.Update(func(tx *bolt.Tx) error {
         b := tx.Bucket([]byte(traceBucket))
-
         if b==nil {
             b,err := tx.CreateBucket([]byte(traceBucket))
             if err!=nil {
@@ -131,7 +189,6 @@ func NewTracingBlocks() *TracingBlocks {
         loggerE.Println(err)
         os.Exit(1)
     }
-
     tb.DBInit(BlockHeightofPaper)
 
     return tb
@@ -253,55 +310,5 @@ func (tb *TracingBlocks) PutOutInfo(oi *OutInfo) {
     if err!=nil {
         loggerE.Println(err)
     }
-}
-
-func (oi *OutInfo) GetInfo(amnt int64, ofst int64) ([]byte, int32, []byte, error) {
-    var hash, timestamp []byte
-    var height          int32
-    var ok              bool
-
-    if amnt!=0 {
-        hash, ok = oi.NonRing[amnt][ofst]
-    } else {
-        hash, ok = oi.Ring[ofst]
-    }
-    height, ok = oi.THtoHeight[string(hash)]
-
-    if ok==false {
-        return nil, 0, nil, errors.New("key does not exist")
-    }
-    timestamp = tb.db.GetBlock(height).Timestamp
-
-    return hash, height, timestamp, nil
-}
-
-func (oi *OutInfo) SetInfo(amnt int64, ofst int64, hash []byte, height int32) {
-
-}
-
-func (oi *OutInfo) Serialization() []byte {
-    var result bytes.Buffer
-
-    encoder := gob.NewEncoder(&result)
-
-    err := encoder. Encode(bt)
-    if err!=nil{
-        loggerE.Println(err)
-    }
-
-    return result.Bytes()
-}
-
-func DeserializeOutInfo(d []byte) *OutInfo {
-    var oi OutInfo
-
-    decoder := gob.NewDecoder(bytes.NewReader(d))
-
-    err := decoder.Decode(&oi)
-    if err!=nil {
-        loggerE.Println(err)
-    }
-
-    return &oi
 }
 
