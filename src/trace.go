@@ -226,13 +226,10 @@ func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
     return DeserializeBlockTxs(v)
 }
 
-func (tb *TracingBlocks) UpdateBlock (height int32, offset int, ti *TxInfo) {
+func (tb *TracingBlocks) UpdateBlock (height int32, bt *BlockTxs) {
     err := tb.db.Batch(func(tx *bolt.Tx) error {
         b := tx.Bucket([]byte(traceBucket))
         index := strconv.FormatInt(int64(height),10)
-
-        bt := DeserializeBlockTxs(b.Get([]byte(fmt.Sprint(height))))
-        bt.TxInputs[offset] = ti
 
         err := b.Put([]byte(index),bt.Serialization())
         if err!=nil {

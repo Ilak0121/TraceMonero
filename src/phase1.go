@@ -35,8 +35,9 @@ func Phase1(tb *TracingBlocks) {
             }
 
             block := tb.GetBlock(i)
+            updateFlag:= false
 
-            for k, ti := range block.TxInputs {
+            for _, ti := range block.TxInputs {
                 if ti.IsCoinbase == true {                      // coinbase has no input
                     continue
                 }
@@ -78,10 +79,13 @@ func Phase1(tb *TracingBlocks) {
                     loggerD.Println("other transaction version exist")
                 }
 
-                if reflect.DeepEqual(roffsets,ti.Roffsets) == false {
+                if reflect.DeepEqual(roffsets,ti.Roffsets) == false { //block roffset update
                     ti.Roffsets = roffsets
-                    go tb.UpdateBlock(i, k, ti)
+                    updateFlag = true
                 }
+            }
+            if updateFlag==true {
+                go tb.UpdateBlock(i, block)
             }
 
         }// end one blockchain
