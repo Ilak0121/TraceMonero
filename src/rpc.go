@@ -170,22 +170,3 @@ func GetTxInputInfo(txHashes [][]byte) ([]*TxInfo) {
     return txInfos
 }
 
-//legacy function, 
-/*
-func GetTxData(txHashes [][]byte) (jsons []string, indices []string){
-    body := GetTx(txHashes)
-    jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
-        asJson, err := jsonparser.GetString(value, "as_json")
-        if err!=nil{
-            loggerE.Println(err)
-        }
-        indice, _, _, err := jsonparser.Get(value, "output_indices")
-        if err!=nil{
-            loggerE.Println(err)
-        }
-        jsons = append(jsons, asJson)
-        indices = append(indices, string(indice))
-    }, "txs")
-
-    return
-}*/

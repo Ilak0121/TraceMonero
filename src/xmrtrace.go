@@ -15,7 +15,7 @@ var (
 )
 
 const (
-    logVer = "v1.4_t"
+    logVer = "v1.4"
     logFile = "./log/phase1_"+logVer+".log"
     TotalInputsFile = "./data/totalInputsperBlk_"+logVer+".csv"
     TotalTracedInputsFile = "./data/totalTracedInputsperBlk_"+logVer+".csv"
@@ -39,11 +39,6 @@ func main() {
     defer tb.db.Close()
 
     //Phase1(tb)
-
-    //code snippet for OutInfo test
-    oi := tb.GetOutInfo()
-    txhash, height, timestamp, err := oi.GetInfo(0, 2, tb)
-    fmt.Println(string(txhash), height, string(timestamp), err)
 
 }
 
