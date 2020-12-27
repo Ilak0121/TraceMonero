@@ -15,7 +15,7 @@ var (
 )
 
 const (
-    logVer = "v1.4"
+    logVer = "v1.5"
     logFile = "./log/phase1_"+logVer+".log"
     TotalInputsFile = "./data/totalInputsperBlk_"+logVer+".csv"
     TotalTracedInputsFile = "./data/totalTracedInputsperBlk_"+logVer+".csv"

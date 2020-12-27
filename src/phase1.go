@@ -6,13 +6,13 @@ import (
 
 const (
     blkStartHeight = 0  //it is fixed now! do not change
+    blkHeight = BlockHeightofPaper
 
     numIter = 5
-    blkHeight = BlockHeightofPaper
 )
 
 func Phase1(tb *TracingBlocks) {
-    var zero_mixin, traced_txin, total_txin int64 = 0, 0, 0
+    var zero_mixin, traced_txin, total_txin, total_tx int64 = 0, 0, 0, 0
 
     TXSpent := make(map[int64]map[int64]bool) //Amnt, Ofst
 
@@ -23,19 +23,23 @@ func Phase1(tb *TracingBlocks) {
     for iterBC:=0; iterBC<numIter; iterBC++ {
         loggerI.Printf("%d'th iteration.\n", iterBC)
 
-        var apercent int32 = blkHeight/int32(100)
-        var progress int32 = int32(0)
+        //var apercent int32 = blkHeight/int32(100)
+        //var progress int32 = int32(0)
 
         for i:=int32(blkStartHeight) ; i<blkHeight ; i++ {
-            if iterBC == 0 && progress == i/apercent {
+            /*if iterBC == 0 && progress == i/apercent {
                 loggerI.Printf("one iteration progress: %d%%...\n", progress)
                 progress++
-            }
+            }*/
 
             block := tb.GetBlock(i)
             updateFlag:= false
 
             for _, ti := range block.TxInputs {
+                if iterBC == 0 {
+                    total_tx++
+                }
+
                 if ti.IsCoinbase == true {                      // coinbase has no input
                     continue
                 }
@@ -88,18 +92,20 @@ func Phase1(tb *TracingBlocks) {
         }// end one blockchain
     } // end iterBC
 
-    loggerI.Println("** Phase1 Completed **")
-    loggerI.Println("# of total txins :",total_txin)
-    loggerI.Println("# of zero mix-ins :",zero_mixin)
-    loggerI.Println("# of total traced txins (effective 0 mix-in) :",traced_txin)
+    TXSpent = nil
 
-    // version 1.2
     if err:=CSVWrite(totalti, TotalInputsFile); err!=nil {
         loggerE.Println(err)
     }
     if err:=CSVWrite(totaltracedti, TotalTracedInputsFile); err!=nil {
         loggerE.Println(err)
     }
+
+    loggerI.Println("** Phase1 Completed **")
+    loggerI.Println("# of total tx :",total_tx)
+    loggerI.Println("# of total txins :",total_txin)
+    loggerI.Println("# of zero mix-ins :",zero_mixin)
+    loggerI.Println("# of total traced txins (effective 0 mix-in) :",traced_txin)
 
     return
 }
