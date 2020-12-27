@@ -90,7 +90,7 @@ func (bt *BlockTxs) GetTimestamp() []byte {
 }
 
 // ---
-func (oi *OutInfo) GetInfo(amnt int64, ofst int64) ([]byte, int32, []byte, error) {
+func (oi *OutInfo) GetInfo(amnt int64, ofst int64, tb *TracingBlocks) ([]byte, int32, []byte, error) {
     var hash, timestamp []byte
     var height          int32
     var ok              bool
@@ -101,7 +101,7 @@ func (oi *OutInfo) GetInfo(amnt int64, ofst int64) ([]byte, int32, []byte, error
     if ok==false {
         return nil, 0, nil, errors.New("key does not exist")
     }
-    timestamp = tb.db.GetBlock(height).Timestamp
+    timestamp = tb.GetBlock(height).Timestamp
 
     return hash, height, timestamp, nil
 }
@@ -120,7 +120,7 @@ func (oi *OutInfo) Serialization() []byte {
 
     encoder := gob.NewEncoder(&result)
 
-    err := encoder. Encode(bt)
+    err := encoder.Encode(oi)
     if err!=nil{
         loggerE.Println(err)
     }
@@ -274,9 +274,9 @@ func (tb *TracingBlocks) DBInit(height int32) {
 func (tb *TracingBlocks) GetOutInfo() *OutInfo {
     var v   []byte
 
-    err := tb.db.View(func(tx *bolt.Tx) error {
+    _ = tb.db.View(func(tx *bolt.Tx) error {
         b := tx.Bucket([]byte(traceBucket))
-        v := b.Get([]byte("oi"))
+        v = b.Get([]byte("oi"))
         return nil
     })
 
@@ -293,7 +293,7 @@ func (tb *TracingBlocks) PutOutInfo(oi *OutInfo) {
         err := b.Put([]byte("oi"), oi.Serialization())
         if err!=nil {
             return err
-        )
+        }
         return nil
     })
     if err!=nil {
@@ -307,14 +307,16 @@ func (tb *TracingBlocks) OutInfoInit(height int32) {
         return
     }
 
+    loggerI.Printf("** OutInfo update start... **\n")
+
     var tmp *OutInfo = new(OutInfo)
     tmp.OfstToHash = make(map[int64]map[int64][]byte)
     tmp.THtoHeight = make(map[string]int32)
 
-    for i:=int32(0); i<height; i++ {
-        apercent := height/int32(100)
-        progress := int32(0)
+    var apercent int32 = height/int32(100)
+    var progress int32 = int32(0)
 
+    for i:=int32(0); i<height; i++ {
         block := tb.GetBlock(i)
         for _, ti := range block.TxInputs {
             for j:=0; j<len(ti.OutIndices); j++ {
