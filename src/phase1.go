@@ -4,9 +4,6 @@ import (
     "reflect"
 )
 
-type Ofst int64
-type Amnt int64
-
 const (
     blkStartHeight = 0  //it is fixed now! do not change
 
@@ -17,10 +14,10 @@ const (
 func Phase1(tb *TracingBlocks) {
     var zero_mixin, traced_txin, total_txin int64 = 0, 0, 0
 
-    var TXSpent  map[Amnt]map[Ofst]bool = make(map[Amnt]map[Ofst]bool)
+    TXSpent := make(map[int64]map[int64]bool) //Amnt, Ofst
 
-    var totalti []int = make([]int, blkHeight+1)
-    var totaltracedti []int = make([]int, blkHeight+1)
+    totalti := make([]int, blkHeight+1)
+    totaltracedti := make([]int, blkHeight+1)
 
     // --- tracing inputs
     for iterBC:=0; iterBC<numIter; iterBC++ {
@@ -28,6 +25,7 @@ func Phase1(tb *TracingBlocks) {
 
         var apercent int32 = blkHeight/int32(100)
         var progress int32 = int32(0)
+
         for i:=int32(blkStartHeight) ; i<blkHeight ; i++ {
             if iterBC == 0 && progress == i/apercent {
                 loggerI.Printf("one iteration progress: %d%%...\n", progress)
@@ -42,12 +40,12 @@ func Phase1(tb *TracingBlocks) {
                     continue
                 }
 
-                var roffsets []int64 = make([]int64, len(ti.Goffsetss))
+                roffsets := make([]int64, len(ti.Goffsetss))
 
                 if ti.Version == 1 || ti.Version == 2 {
                     for j:=0; j<len(ti.Amounts); j++ {          // each txin_v
-                        var untraced_offsets []Ofst = make([]Ofst, 0, len(ti.Amounts))
-                        var amnt Amnt = Amnt(ti.Amounts[j])
+                        untraced_offsets := make([]int64, 0, len(ti.Amounts))
+                        amnt := ti.Amounts[j]
 
                         if iterBC==0 {
                             if total_txin++; len(ti.Goffsetss[j])==1 {
@@ -58,8 +56,7 @@ func Phase1(tb *TracingBlocks) {
                             totalti[i] += len(ti.Amounts)
                         }
 
-                        for _, offset_r := range ti.Goffsetss[j] {
-                            offset := Ofst(offset_r)
+                        for _, offset := range ti.Goffsetss[j] {
                             if _, ok := TXSpent[amnt][offset]; !ok{ //seen?
                                 untraced_offsets = append(untraced_offsets, offset)
                             }
@@ -67,11 +64,11 @@ func Phase1(tb *TracingBlocks) {
 
                         if len(untraced_offsets) == 1 {
                             if _, ok := TXSpent[amnt]; !ok{
-                                TXSpent[amnt] = make(map[Ofst]bool)
+                                TXSpent[amnt] = make(map[int64]bool)
                             }
                             TXSpent[amnt][untraced_offsets[0]] = true
                             traced_txin++
-                            roffsets[j] = int64(untraced_offsets[0])
+                            roffsets[j] = untraced_offsets[0]
                         }
                     }
 
