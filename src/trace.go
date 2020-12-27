@@ -17,6 +17,11 @@ const (
     BlockHeightofPaper = 1240000
 )
 
+type Pair struct {
+    Amnt    int64
+    Ofst    int64
+}
+
 type TxInfo struct {        // info for each transaction
     IsCoinbase  bool    //**
     Version     int64       // nonRingCT:1 & RingCT:2
@@ -37,7 +42,7 @@ type BlockTxs struct {
 // NewBlockTxs, Serialization, DeserializeBlockTxs, GetTimestamp
 
 type OutInfo struct {
-    OfstToHash      map[int64]map[int64][]byte  //txHash
+    OfstToHash      map[Pair][]byte  //txHash
     THtoHeight      map[string]int32
 }
 // GetInfo - Hash, Height, Time 
@@ -90,12 +95,12 @@ func (bt *BlockTxs) GetTimestamp() []byte {
 }
 
 // ---
-func (oi *OutInfo) GetInfo(amnt int64, ofst int64, tb *TracingBlocks) ([]byte, int32, []byte, error) {
+func (oi *OutInfo) GetInfo(p Pair, tb *TracingBlocks) ([]byte, int32, []byte, error) {
     var hash, timestamp []byte
     var height          int32
     var ok              bool
 
-    hash, ok = oi.OfstToHash[amnt][ofst]
+    hash, ok = oi.OfstToHash[p]
     height, ok = oi.THtoHeight[string(hash)]
 
     if ok==false {
@@ -106,12 +111,8 @@ func (oi *OutInfo) GetInfo(amnt int64, ofst int64, tb *TracingBlocks) ([]byte, i
     return hash, height, timestamp, nil
 }
 
-func (oi *OutInfo) SetInfo(amnt int64, ofst int64, hash []byte, height int32) {
-    if _, ok := oi.OfstToHash[amnt]; !ok {
-        oi.OfstToHash[amnt] = make(map[int64][]byte)
-    }
-
-    oi.OfstToHash[amnt][ofst] = hash
+func (oi *OutInfo) SetInfo(p Pair, hash []byte, height int32) {
+    oi.OfstToHash[p] = hash
     oi.THtoHeight[string(hash)] = height
 }
 
@@ -307,7 +308,7 @@ func (tb *TracingBlocks) OutInfoInit(height int32) {
     loggerI.Printf("** OutInfo update start... **\n")
 
     var tmp *OutInfo = new(OutInfo)
-    tmp.OfstToHash = make(map[int64]map[int64][]byte)
+    tmp.OfstToHash = make(map[Pair][]byte)
     tmp.THtoHeight = make(map[string]int32)
 
     var apercent int32 = height/int32(100)
@@ -317,7 +318,8 @@ func (tb *TracingBlocks) OutInfoInit(height int32) {
         block := tb.GetBlock(i)
         for _, ti := range block.TxInputs {
             for j:=0; j<len(ti.OutIndices); j++ {
-                tmp.SetInfo(ti.OutAmounts[j], ti.OutIndices[j], ti.TxHash, i)
+                p := Pair{ti.OutAmounts[j], ti.OutIndices[j]}
+                tmp.SetInfo(p, ti.TxHash, i)
             }
         }
 

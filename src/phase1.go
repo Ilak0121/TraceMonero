@@ -1,7 +1,7 @@
 package main
 
 import (
-    "reflect"
+    "sync"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 func Phase1(tb *TracingBlocks) {
     var zero_mixin, traced_txin, total_txin, total_tx int64 = 0, 0, 0, 0
 
-    TXSpent := make(map[int64]map[int64]bool) //Amnt, Ofst
+    TXSpent := make(map[Pair]bool) //Amnt, Ofst
 
     totalti := make([]int, blkHeight+1)
     totaltracedti := make([]int, blkHeight+1)
@@ -26,6 +26,8 @@ func Phase1(tb *TracingBlocks) {
         //var apercent int32 = blkHeight/int32(100)
         //var progress int32 = int32(0)
 
+        var wg sync.WaitGroup
+
         for i:=int32(blkStartHeight) ; i<blkHeight ; i++ {
             /*if iterBC == 0 && progress == i/apercent {
                 loggerI.Printf("one iteration progress: %d%%...\n", progress)
@@ -33,8 +35,8 @@ func Phase1(tb *TracingBlocks) {
             }*/
 
             block := tb.GetBlock(i)
-            updateFlag:= false
 
+            flag := false
             for _, ti := range block.TxInputs {
                 if iterBC == 0 {
                     total_tx++
@@ -43,8 +45,6 @@ func Phase1(tb *TracingBlocks) {
                 if ti.IsCoinbase == true {                      // coinbase has no input
                     continue
                 }
-
-                roffsets := make([]int64, len(ti.Goffsetss))
 
                 if ti.Version == 1 || ti.Version == 2 {
                     for j:=0; j<len(ti.Amounts); j++ {          // each txin_v
@@ -61,18 +61,18 @@ func Phase1(tb *TracingBlocks) {
                         }
 
                         for _, offset := range ti.Goffsetss[j] {
-                            if _, ok := TXSpent[amnt][offset]; !ok{ //seen?
+                            if _, ok := TXSpent[Pair{amnt, offset}]; !ok{ //seen?
                                 untraced_offsets = append(untraced_offsets, offset)
                             }
                         }
 
                         if len(untraced_offsets) == 1 {
-                            if _, ok := TXSpent[amnt]; !ok{
-                                TXSpent[amnt] = make(map[int64]bool)
-                            }
-                            TXSpent[amnt][untraced_offsets[0]] = true
+                            TXSpent[Pair{amnt, untraced_offsets[0]}] = true
                             traced_txin++
-                            roffsets[j] = untraced_offsets[0]
+                            if ti.Roffsets[j] != untraced_offsets[0] {
+                                ti.Roffsets[j] = untraced_offsets[0]
+                                flag = true
+                            }
                         }
                     }
 
@@ -80,15 +80,17 @@ func Phase1(tb *TracingBlocks) {
                     loggerD.Println("other transaction version exist")
                 }
 
-                if reflect.DeepEqual(roffsets,ti.Roffsets) == false { //block roffset update
-                    ti.Roffsets = roffsets
-                    updateFlag = true
-                }
             }
-            if updateFlag==true {
-                go tb.UpdateBlock(i, block)
+            if flag==true {
+                loggerD.Printf("%d block update", i)
+                wg.Add(1)
+                go func(){
+                    defer wg.Done()
+                    tb.UpdateBlock(i, block)
+                }()
             }
 
+            wg.Wait()
         }// end one blockchain
     } // end iterBC
 
