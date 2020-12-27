@@ -38,7 +38,7 @@ func main() {
     tb := NewTracingBlocks()
     defer tb.db.Close()
 
-    //Phase1(tb)
+    Phase1(tb)
 
 }
 

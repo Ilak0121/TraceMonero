@@ -227,7 +227,7 @@ func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
 }
 
 func (tb *TracingBlocks) UpdateBlock (height int32, offset int, ti *TxInfo) {
-    err := tb.db.Update(func(tx *bolt.Tx) error {
+    err := tb.db.Batch(func(tx *bolt.Tx) error {
         b := tx.Bucket([]byte(traceBucket))
         index := strconv.FormatInt(int64(height),10)
 

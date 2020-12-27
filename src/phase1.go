@@ -26,8 +26,13 @@ func Phase1(tb *TracingBlocks) {
     for iterBC:=0; iterBC<numIter; iterBC++ {
         loggerI.Printf("%d'th iteration.\n", iterBC)
 
-        var i int32
-        for i=blkStartHeight ; i<blkHeight ; i++ {
+        var apercent int32 = blkHeight/int32(100)
+        var progress int32 = int32(0)
+        for i:=int32(blkStartHeight) ; i<blkHeight ; i++ {
+            if iterBC == 0 && progress == i/apercent {
+                loggerI.Printf("one iteration progress: %d%%...\n", progress)
+                progress++
+            }
 
             block := tb.GetBlock(i)
 
@@ -75,7 +80,7 @@ func Phase1(tb *TracingBlocks) {
 
                 if reflect.DeepEqual(roffsets,ti.Roffsets) == false {
                     ti.Roffsets = roffsets
-                    tb.UpdateBlock(i, k, ti)
+                    go tb.UpdateBlock(i, k, ti)
                 }
             }
 
