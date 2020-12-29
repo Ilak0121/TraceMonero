@@ -15,8 +15,8 @@ var (
 )
 
 const (
-    logVer = "v1.5_t"
-    logFile = "./log/phase1_"+logVer+".log"
+    logVer = "v1.10"
+    logFile = "./log/tracelog_"+logVer+".log"
     TotalInputsFile = "./data/totalInputsperBlk_"+logVer+".csv"
     TotalTracedInputsFile = "./data/totalTracedInputsperBlk_"+logVer+".csv"
 )
@@ -38,7 +38,8 @@ func main() {
     tb := NewTracingBlocks()
     defer tb.db.Close()
 
-    Phase1(tb)
+    phase2(tb)
+
 }
 
 

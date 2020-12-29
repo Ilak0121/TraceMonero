@@ -23,13 +23,13 @@ type Pair struct {
 }
 
 type TxInfo struct {        // info for each transaction
-    IsCoinbase  bool    //**
+    IsCoinbase  bool
     Version     int64       // nonRingCT:1 & RingCT:2
     TxHash      []byte
 
     Amounts     []int64
     Goffsetss   [][]int64   // set of global offsets Vin:Offset
-    Roffsets    []int64 //**
+    Roffsets    []int64
 
     OutIndices  []int64
     OutAmounts  []int64
@@ -182,7 +182,7 @@ func NewTracingBlocks() *TracingBlocks {
         os.Exit(1)
     }
     tb.DBInit(BlockHeightofPaper)
-    tb.OutInfoInit(BlockHeightofPaper)
+    //tb.OutInfoInit(BlockHeightofPaper)
 
     return tb
 }
@@ -213,7 +213,7 @@ func (tb *TracingBlocks) PutBlock (bt *BlockTxs) {
 func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
     var v []byte
     if i >= tb.length {
-        loggerE.Println("out of index: %d\n",tb.length)
+        loggerE.Printf("out of index: %d\n",tb.length)
         return nil
     }
     err := tb.db.View(func(tx *bolt.Tx) error {
@@ -227,7 +227,7 @@ func (tb *TracingBlocks) GetBlock (i int32) *BlockTxs {
     return DeserializeBlockTxs(v)
 }
 
-func (tb *TracingBlocks) UpdateBlock (height int32, bt *BlockTxs) {
+func (tb *TracingBlocks) UpdateBlock (height int32, bt *BlockTxs) error{
     err := tb.db.Batch(func(tx *bolt.Tx) error {
         b := tx.Bucket([]byte(traceBucket))
         index := strconv.FormatInt(int64(height),10)
@@ -240,8 +240,9 @@ func (tb *TracingBlocks) UpdateBlock (height int32, bt *BlockTxs) {
         return nil
     })
     if err!=nil {
-        loggerE.Println(err)
+        return err
     }
+    return nil
 }
 
 func (tb *TracingBlocks) DBInit(height int32) {
@@ -300,10 +301,6 @@ func (tb *TracingBlocks) PutOutInfo(oi *OutInfo) {
 }
 
 func (tb *TracingBlocks) OutInfoInit(height int32) {
-    if tb.GetOutInfo() != nil {
-        loggerI.Printf("OutInfo is fully synchronized (length: %d)...\n", tb.length)
-        return
-    }
 
     loggerI.Printf("** OutInfo update start... **\n")
 
@@ -314,12 +311,15 @@ func (tb *TracingBlocks) OutInfoInit(height int32) {
     var apercent int32 = height/int32(100)
     var progress int32 = int32(0)
 
+    count := 0
+
     for i:=int32(0); i<height; i++ {
         block := tb.GetBlock(i)
         for _, ti := range block.TxInputs {
             for j:=0; j<len(ti.OutIndices); j++ {
                 p := Pair{ti.OutAmounts[j], ti.OutIndices[j]}
                 tmp.SetInfo(p, ti.TxHash, i)
+                count++
             }
         }
 
@@ -330,6 +330,7 @@ func (tb *TracingBlocks) OutInfoInit(height int32) {
     }
     tb.PutOutInfo(tmp)
 
+    loggerI.Printf("** info: %v **\n", count)
     loggerI.Printf("** OutInfo update finished **\n")
 }
 
